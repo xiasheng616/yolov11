@@ -1,21 +1,21 @@
 """Convert CrowdHuman to a single-class Ultralytics YOLO practice dataset.
 
-Run this file with the SERVER Python interpreter in PyCharm.
+Use --source and --output; use --image-mode copy on Windows without symlink support.
 Ignore policy: omit mask/extra.ignore boxes from positive labels and preserve
 them in metadata. Standard YOLO still sees their pixels as possible background;
 this does NOT implement ignore-aware loss or official CrowdHuman evaluation.
 """
 
+import argparse
 import json
+import shutil
 import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 
-PROJECT = Path('/root/autodl-tmp/yolov11/yolov11')
-SOURCE = PROJECT / 'datasets/CrowdHuman'
-OUTPUT = PROJECT / 'datasets/CrowdHuman_yolo'
+ROOT = Path(__file__).resolve().parent
 
 
 def normalize_box(box, width, height):
@@ -37,15 +37,15 @@ def normalize_box(box, width, height):
     )
 
 
-def convert_split(split, expected_count):
-    image_dir = OUTPUT / 'images' / split
-    label_dir = OUTPUT / 'labels' / split
+def convert_split(split, expected_count, source, output, image_mode):
+    image_dir = output / 'images' / split
+    label_dir = output / 'labels' / split
     image_dir.mkdir(parents=True, exist_ok=True)
     label_dir.mkdir(parents=True, exist_ok=True)
     # Labels are regenerated, so remove only this dataset's label cache.
     label_dir.with_suffix('.cache').unlink(missing_ok=True)
 
-    annotations = SOURCE / f'annotation_{split}.odgt'
+    annotations = source / f'annotation_{split}.odgt'
     records = [json.loads(line) for line in annotations.read_text(
         encoding='utf-8-sig').splitlines() if line.strip()]
     if len(records) != expected_count:
@@ -61,7 +61,7 @@ def convert_split(split, expected_count):
         image_id = record['ID']
         if Path(image_id).name != image_id or '/' in image_id or '\\' in image_id:
             raise ValueError(f'Unexpected image ID: {image_id}')
-        source_image = SOURCE / split / 'Images' / f'{image_id}.jpg'
+        source_image = source / split / 'Images' / f'{image_id}.jpg'
         if not source_image.is_file():
             raise FileNotFoundError(source_image)
 
@@ -104,7 +104,10 @@ def convert_split(split, expected_count):
         elif target_image.exists():
             raise RuntimeError(f'Output image already exists as a regular file: {target_image}')
         else:
-            target_image.symlink_to(source_image)
+            if image_mode == "copy":
+                shutil.copy2(source_image, target_image)
+            else:
+                target_image.symlink_to(source_image)
 
         (label_dir / f'{image_id}.txt').write_text(
             '\n'.join(lines) + ('\n' if lines else ''), encoding='utf-8')
@@ -114,13 +117,13 @@ def convert_split(split, expected_count):
         if ignored:
             ignored_records.append({'ID': image_id, 'gtboxes': ignored})
         if preview is not None:
-            preview.save(OUTPUT / 'preview' / f'{split}_{number}.jpg')
+            preview.save(output / 'preview' / f'{split}_{number}.jpg')
         if number % 1000 == 0 or number == expected_count:
             print(f'{split}: {number}/{expected_count}', flush=True)
 
-    (OUTPUT / f'{split}.txt').write_text(
+    (output / f'{split}.txt').write_text(
         '\n'.join(image_list) + '\n', encoding='utf-8')
-    (OUTPUT / 'metadata' / f'ignored_{split}.odgt').write_text(
+    (output / 'metadata' / f'ignored_{split}.odgt').write_text(
         '\n'.join(json.dumps(r, ensure_ascii=False) for r in ignored_records),
         encoding='utf-8')
     return {'images': len(image_list), 'positive_boxes': boxes_count,
@@ -130,28 +133,34 @@ def convert_split(split, expected_count):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=ROOT / "datasets/CrowdHuman")
+    parser.add_argument("--output", type=Path, default=ROOT / "datasets/CrowdHuman_yolo")
+    parser.add_argument("--image-mode", choices=["symlink", "copy"], default="symlink")
+    args = parser.parse_args()
+    source, output = args.source.resolve(), args.output.resolve()
     for split in ('train', 'val'):
-        annotation = SOURCE / f'annotation_{split}.odgt'
+        annotation = source / f'annotation_{split}.odgt'
         if not annotation.is_file():
             raise FileNotFoundError(f'Missing annotation: {annotation}')
-    (OUTPUT / 'metadata').mkdir(parents=True, exist_ok=True)
-    (OUTPUT / 'preview').mkdir(parents=True, exist_ok=True)
+    (output / 'metadata').mkdir(parents=True, exist_ok=True)
+    (output / 'preview').mkdir(parents=True, exist_ok=True)
     stats = {}
     for split, count in [('train', 15000), ('val', 4370)]:
-        stats[split] = convert_split(split, count)
+        stats[split] = convert_split(split, count, source, output, args.image_mode)
         print(f'{split}: {stats[split]}', flush=True)
 
-    config = OUTPUT / 'crowdhuman.yaml'
+    config = output / 'crowdhuman.yaml'
     config.write_text(
-        f'path: {OUTPUT}\ntrain: train.txt\nval: val.txt\nnames:\n  0: person\n',
+        f'path: {output}\ntrain: train.txt\nval: val.txt\nnames:\n  0: person\n',
         encoding='utf-8')
-    (OUTPUT / 'metadata' / 'conversion.json').write_text(
+    (output / 'metadata' / 'conversion.json').write_text(
         json.dumps({'box_type': 'fbox', 'clip_boxes_to_image': True,
                     'ignore_policy': 'omit_positive_labels_only',
-                    'ignore_aware_loss': False, 'stats': stats}, indent=2),
+                    'ignore_aware_loss': False, 'image_mode': args.image_mode, 'stats': stats}, indent=2),
         encoding='utf-8')
     print(f'\nFinished. Dataset config: {config}')
-    print(f'Check the red boxes in: {OUTPUT / "preview"}')
+    print(f'Check the red boxes in: {output / "preview"}')
     print('WARNING: ignore boxes were omitted, not masked in the YOLO loss.')
     print('YOLO mAP is not an official CrowdHuman benchmark score.')
 

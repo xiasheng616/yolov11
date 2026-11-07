@@ -1,1 +1,48 @@
-/weights/yolo11x.pt
+# Datasets, videos and full experiment artifacts
+/VOCdevkit/
+/datasets/
+/data/videos/
+/weights/
+/runs/
+/exports/
+/evaluation/
+/evaluation_resources/
+/benchmarks/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.ply
+*.zip
+/chair*.png
+/chair*.jpg
+/test.jpg
+
+# Local environments and caches
+.idea/
+.vscode/
+.ipynb_checkpoints/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.env
+.env.*
+*.log
+
+# Upstream auxiliaries kept locally, excluded from this portfolio's tracked tree
+/docker/
+/examples/
+/tests/
+/mkdocs.yml
+/CITATION.cff
+/docs/**
+!/docs/DATA_AND_WEIGHTS.md
+!/docs/THIRD_PARTY.md
+!/docs/VALIDATION.md
+!/docs/RGBD.md
+!/docs/LEGACY_EXPERIMENTS.md
+!/docs/ONNX_BENCHMARK_2026-11-07.md
+
+# Personal reports and selected real assets remain tracked

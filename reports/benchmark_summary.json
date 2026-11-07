@@ -1,0 +1,31 @@
+{
+  "recorded_on": "2026-11-07",
+  "source": "user terminal output; original per-frame samples not retained",
+  "protocol": {
+    "warmup": 20,
+    "frames_per_round": 200,
+    "repeat": 3,
+    "imgsz": 640,
+    "rect": false,
+    "batch": 1,
+    "conf": 0.1,
+    "iou": 0.7,
+    "half": false,
+    "device": "0",
+    "scope": "synchronized model.predict call; excludes video I/O, drawing and ByteTrack"
+  },
+  "pytorch_fp32": {
+    "mean_ms": 11.15,
+    "median_ms": 10.6,
+    "p95_ms": 14.89
+  },
+  "onnx_fp32": {
+    "mean_ms": 11.1,
+    "median_ms": 10.97,
+    "p95_ms": 12.05,
+    "session_providers": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ]
+  }
+}

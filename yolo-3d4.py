@@ -15,7 +15,7 @@ depth = cv.imread(tum_rgbd.depth_path, cv.IMREAD_UNCHANGED)
 if depth.ndim == 3 and depth.shape[2] == 1:
     depth = depth[:, :, 0]
 
-model = YOLO("yolo11s-seg.pt")
+model = YOLO("weights/yolo11s-seg.pt")
 
 result = model.predict(
     source=rgb,
@@ -75,5 +75,7 @@ pcd.colors = o3d.utility.Vector3dVector(colors)
 print("有效点数:", points.shape[0])
 
 
+if not o3d.io.write_point_cloud("chair_mask_cloud.ply", pcd):
+    raise OSError("保存 chair_mask_cloud.ply 失败")
 
 o3d.visualization.draw_geometries([pcd])
